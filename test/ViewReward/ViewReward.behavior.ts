@@ -1,17 +1,18 @@
+/* eslint-disable prefer-const */
 import { expect } from "chai";
 import { parseUnits } from "ethers/lib/utils";
 import { stakingConfigFixture } from "../shared/fixtures";
 import { MaxUint256 } from "@ethersproject/constants";
 import { ethers, waffle } from "hardhat";
-import { UnipilotStaking } from "../../typechain/UnipilotStaking";
+import { RPMStaking } from "../../typechain/RPMStaking";
 import { TestERC20 } from "../../typechain/TestERC20";
-import { mineNBlocks, TX_TYPE, expectEventForAll, delay } from "../common.setup";
+import { mineNBlocks, TX_TYPE, expectEventForAll } from "../common.setup";
 
 const createFixtureLoader = waffle.createFixtureLoader;
 
 export async function shouldBehaveLikeViewRewards(): Promise<void> {
-  let staking: UnipilotStaking;
-  let pilot: TestERC20;
+  let staking: RPMStaking;
+  let rpm: TestERC20;
   let WETH: TestERC20;
 
   const [wallet, alice, bob] = waffle.provider.getWallets();
@@ -28,20 +29,20 @@ export async function shouldBehaveLikeViewRewards(): Promise<void> {
   beforeEach("fixtures", async () => {
     const res = await loadFixture(stakingConfigFixture);
     staking = res.staking;
-    pilot = res.pilot;
+    rpm = res.rpm;
     WETH = res.WETH;
 
-    await pilot.mint(wallet.address, parseUnits("2000000", "18"));
+    await rpm.mint(wallet.address, parseUnits("2000000", "18"));
     await WETH.mint(wallet.address, parseUnits("2000000", "18"));
 
     await WETH.transfer(staking.address, HUNDRED);
     await staking.updateRewards(HUNDRED, 100);
 
-    await pilot.connect(alice).mint(alice.address, parseUnits("2000000", "18"));
-    await pilot.connect(bob).mint(bob.address, parseUnits("2000000", "18"));
+    await rpm.connect(alice).mint(alice.address, parseUnits("2000000", "18"));
+    await rpm.connect(bob).mint(bob.address, parseUnits("2000000", "18"));
 
-    await pilot.connect(alice).approve(staking.address, MaxUint256);
-    await pilot.connect(bob).approve(staking.address, MaxUint256);
+    await rpm.connect(alice).approve(staking.address, MaxUint256);
+    await rpm.connect(bob).approve(staking.address, MaxUint256);
   });
 
   describe("#RewardsLookup", () => {
@@ -53,7 +54,7 @@ export async function shouldBehaveLikeViewRewards(): Promise<void> {
 
     it("should stake 10 tokens and after 10 blocks, see rewards", async () => {
       let aliceStake = await staking.connect(alice).stake(alice.address, TEN);
-      expectEventForAll(staking, aliceStake, alice, TEN, 0, TX_TYPE.STAKE);
+      await expectEventForAll(staking, aliceStake, alice, TEN, 0, TX_TYPE.STAKE);
       await mineNBlocks(10);
       let aliceReward = await staking.calculatePendingRewards(alice.address);
       expect(aliceReward).to.equal(TEN);
@@ -70,8 +71,9 @@ export async function shouldBehaveLikeViewRewards(): Promise<void> {
       await mineNBlocks(10);
       let bobReward = await staking.calculatePendingRewards(bob.address);
 
-      expectEventForAll(staking, aliceStake, alice, TEN, 0, TX_TYPE.STAKE);
-      expectEventForAll(staking, bobStake, bob, TEN, 0, TX_TYPE.STAKE);
+      await expectEventForAll(staking, aliceStake, alice, TEN, 0, TX_TYPE.STAKE);
+      await expectEventForAll(staking, bobStake, bob, TEN, 0, TX_TYPE.STAKE);
+
       expect(aliceReward).to.equal("4500000000000000000"); //4.5
       expect(bobReward).to.equal("9500000000000000000"); //9.5
     });
@@ -82,8 +84,8 @@ export async function shouldBehaveLikeViewRewards(): Promise<void> {
       let aliceClaim = await staking.connect(alice).claim();
       let aliceVieww = await staking.calculatePendingRewards(alice.address);
 
-      expectEventForAll(staking, aliceStake, alice, TEN, 0, TX_TYPE.STAKE);
-      expectEventForAll(staking, aliceClaim, alice, TEN, TEN.add(ONE), TX_TYPE.CLAIM);
+      await expectEventForAll(staking, aliceStake, alice, TEN, 0, TX_TYPE.STAKE);
+      await expectEventForAll(staking, aliceClaim, alice, TEN, TEN.add(ONE), TX_TYPE.CLAIM);
       // console.log("alice view reward", aliceVieww.toString());
       expect(aliceVieww).to.equal(0);
     });

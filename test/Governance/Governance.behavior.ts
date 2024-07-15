@@ -1,23 +1,25 @@
+/* eslint-disable @typescript-eslint/no-floating-promises */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { expect } from "chai";
 import { parseUnits } from "ethers/lib/utils";
 import { stakingConfigFixture } from "../shared/fixtures";
 import { MaxUint256 } from "@ethersproject/constants";
 import { ethers, waffle } from "hardhat";
-import { UnipilotStaking } from "../../typechain/UnipilotStaking";
+import { RPMStaking } from "../../typechain/RPMStaking";
 import { TestERC20 } from "../../typechain/TestERC20";
 import { mineNBlocks, TX_TYPE, expectEventForAll } from "../common.setup";
 
 const createFixtureLoader = waffle.createFixtureLoader;
 
 export async function shouldBehaveLikeGovernance(): Promise<void> {
-  let staking: UnipilotStaking;
-  let pilot: TestERC20;
+  let staking: RPMStaking;
+  let rpm: TestERC20;
   let WETH: TestERC20;
-  let HUNDRED = parseUnits("100", "18");
-  let TEN = parseUnits("10", "18");
-  let ONE = parseUnits("1", "18");
+  const HUNDRED = parseUnits("100", "18");
+  const TEN = parseUnits("10", "18");
+  const ONE = parseUnits("1", "18");
   let SECONDARY_TOKEN: TestERC20;
-  let ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+  const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
   let loadFixture: ReturnType<typeof createFixtureLoader>;
 
   const [wallet, alice, bob, carol, newWallet] = waffle.provider.getWallets();
@@ -27,42 +29,44 @@ export async function shouldBehaveLikeGovernance(): Promise<void> {
     const secondaryReward = await ethers.getContractFactory("TestERC20");
     SECONDARY_TOKEN = (await secondaryReward.deploy(1)) as TestERC20;
   });
+
   beforeEach("fixtures", async () => {
     const res = await loadFixture(stakingConfigFixture);
     staking = res.staking;
-    pilot = res.pilot;
+    rpm = res.rpm;
     WETH = res.WETH;
 
-    await pilot.mint(wallet.address, parseUnits("2000000", "18"));
+    await rpm.mint(wallet.address, parseUnits("2000000", "18"));
     await WETH.mint(wallet.address, parseUnits("2000000", "18"));
     await SECONDARY_TOKEN.mint(wallet.address, parseUnits("2000000", "18"));
 
     await WETH.transfer(staking.address, HUNDRED);
     await staking.updateRewards(HUNDRED, 100);
 
-    await pilot.connect(wallet).approve(staking.address, MaxUint256);
+    await rpm.connect(wallet).approve(staking.address, MaxUint256);
     await WETH.connect(wallet).approve(staking.address, MaxUint256);
     await SECONDARY_TOKEN.connect(wallet).approve(staking.address, MaxUint256);
 
-    await pilot.connect(alice).mint(alice.address, parseUnits("2000000", "18"));
-    await pilot.connect(bob).mint(bob.address, parseUnits("2000000", "18"));
-    await pilot.connect(carol).mint(carol.address, parseUnits("2000000", "18"));
+    await rpm.connect(alice).mint(alice.address, parseUnits("2000000", "18"));
+    await rpm.connect(bob).mint(bob.address, parseUnits("2000000", "18"));
+    await rpm.connect(carol).mint(carol.address, parseUnits("2000000", "18"));
 
-    await pilot.connect(alice).approve(staking.address, MaxUint256);
-    await pilot.connect(bob).approve(staking.address, MaxUint256);
-    await pilot.connect(carol).approve(staking.address, MaxUint256);
+    await rpm.connect(alice).approve(staking.address, MaxUint256);
+    await rpm.connect(bob).approve(staking.address, MaxUint256);
+    await rpm.connect(carol).approve(staking.address, MaxUint256);
   });
+
   describe("#RewardAndGovernance", () => {
     xit("should return 1 eth", async () => {
-      const result = await staking.totalPilotStaked();
+      const result = await staking.totalRPMStaked();
       expect(result).to.equal(ONE);
     });
 
     it("should let the governanec to change", async () => {
       // console.log("new", newWallet.address);
-      let newGovernance = staking.setGovernance(newWallet.address);
+      const newGovernance = staking.setGovernance(newWallet.address);
       await expect(newGovernance).to.not.reverted;
-      let resolvedNewGovernance = await newGovernance;
+      const resolvedNewGovernance = await newGovernance;
 
       await expect(resolvedNewGovernance)
         .to.emit(staking, "GovernanceChanged")
@@ -80,18 +84,18 @@ export async function shouldBehaveLikeGovernance(): Promise<void> {
     });
 
     it("sohuld let stakes from users and update reward token with 0 reward to claim", async () => {
-      let aliceStake = await staking.stake(alice.address, TEN);
-      let bobStake = await staking.stake(bob.address, TEN);
+      const aliceStake = await staking.stake(alice.address, TEN);
+      const bobStake = await staking.stake(bob.address, TEN);
 
       //rewardPeriod ended here
       await staking.updateRewardEndBlock(0);
-      let tokenUpdate = await staking.updateRewardToken(SECONDARY_TOKEN.address);
+      const tokenUpdate = await staking.updateRewardToken(SECONDARY_TOKEN.address);
       await staking.updateRewards(HUNDRED, 100);
 
       await mineNBlocks(8); //mining only 8 blocks bcz 2 blocks were mined during the above tx
       await ethers.provider.send("evm_setAutomine", [false]);
-      let aliceClaim = await staking.connect(alice).claim();
-      let bobClaim = await staking.connect(bob).claim();
+      const aliceClaim = await staking.connect(alice).claim();
+      const bobClaim = await staking.connect(bob).claim();
       await ethers.provider.send("evm_setAutomine", [true]);
       /**
        * acc = 0.5
@@ -99,7 +103,9 @@ export async function shouldBehaveLikeGovernance(): Promise<void> {
        * blocks passed = 11
        */
       expect(tokenUpdate).to.emit(staking, "RewardTokenChanged").withArgs(WETH.address, SECONDARY_TOKEN.address);
+
       expectEventForAll(staking, aliceClaim, alice, TEN, "5500000000000000000", TX_TYPE.CLAIM);
+
       expectEventForAll(staking, bobClaim, bob, TEN, "5500000000000000000", TX_TYPE.CLAIM);
     });
 
@@ -113,8 +119,8 @@ export async function shouldBehaveLikeGovernance(): Promise<void> {
       await expect(staking.stake(alice.address, ONE)).to.be.revertedWith("RewardDistributionPeriodHasExpired");
       await staking.updateRewardEndBlock(100);
 
-      let aliceStake = await staking.stake(alice.address, ONE);
-      expectEventForAll(staking, aliceStake, alice, ONE, 0, TX_TYPE.STAKE);
+      const aliceStake = await staking.stake(alice.address, ONE);
+      await expectEventForAll(staking, aliceStake, alice, ONE, 0, TX_TYPE.STAKE);
     });
 
     it("should let to stake after reward token update", async () => {
@@ -123,8 +129,8 @@ export async function shouldBehaveLikeGovernance(): Promise<void> {
       await staking.updateRewardToken(SECONDARY_TOKEN.address);
       await staking.updateRewards(HUNDRED, 100);
       await mineNBlocks(8); //mining only 8 blocks bcz 2 blocks were mined during the above tx
-      let aliceStake = await staking.stake(alice.address, ONE);
-      expectEventForAll(staking, aliceStake, alice, ONE, 0, TX_TYPE.STAKE);
+      const aliceStake = await staking.stake(alice.address, ONE);
+      await expectEventForAll(staking, aliceStake, alice, ONE, 0, TX_TYPE.STAKE);
     });
 
     it("should run out of funds then extendPeriod will handle this", async () => {
@@ -136,9 +142,9 @@ export async function shouldBehaveLikeGovernance(): Promise<void> {
       //50 blocks gone unrewarded
       await staking.stake(alice.address, TEN);
 
-      let currentBlock = await staking.lastUpdateBlock();
+      const currentBlock = await staking.lastUpdateBlock();
       // console.log("stake b#", currentBlock);
-      let remainingBlocks: number = +periodEnd.sub(currentBlock); //109 - 69 = 40 block remains for distribution
+      const remainingBlocks: number = +periodEnd.sub(currentBlock); //109 - 69 = 40 block remains for distribution
 
       //period has been ended here
       await mineNBlocks(remainingBlocks);
@@ -156,6 +162,46 @@ export async function shouldBehaveLikeGovernance(): Promise<void> {
       // console.log("jumped to b#", await ethers.provider.getBlockNumber());
       // console.log("alice pending:", await staking.calculatePendingRewards(alice.address));
       await staking.connect(alice).claim();
+    });
+
+    it("should increment the 'totalRewardAllocated' on 'updateRewards' and reset on 'updateRewardToken'", async () => {
+      const totalRewardAllocatedBefore = await staking.totalRewardAllocated();
+
+      expect(totalRewardAllocatedBefore).to.equal(HUNDRED);
+
+      await staking.updateRewards(HUNDRED, 100);
+      let totalRewardAllocatedAfter = await staking.totalRewardAllocated();
+
+      expect(totalRewardAllocatedAfter).to.equal(totalRewardAllocatedBefore.add(HUNDRED));
+
+      await staking.updateRewardToken(SECONDARY_TOKEN.address);
+      totalRewardAllocatedAfter = await staking.totalRewardAllocated();
+
+      expect(totalRewardAllocatedAfter).to.equal(0);
+    });
+
+    it("should increment 'userClaimedReward' on 'claim' and reset after 'updateRewardToken'", async () => {
+      const HundredWETH = parseUnits("100", "18");
+
+      await staking.connect(alice).stake(alice.address, HundredWETH);
+      await mineNBlocks(30);
+
+      const claimedRewardBefore = await staking.userClaimedReward(alice.address);
+      // unstake also claims pending rewards.
+      await staking.connect(alice).unstake(HundredWETH);
+      const claimedRewardAfter = await staking.userClaimedReward(alice.address);
+
+      expect(claimedRewardAfter).to.be.gt(claimedRewardBefore);
+
+      await SECONDARY_TOKEN.transfer(staking.address, HUNDRED);
+      await staking.updateRewardToken(SECONDARY_TOKEN.address);
+      await staking.updateRewards(HUNDRED, 100);
+
+      await staking.stake(alice.address, ONE);
+
+      const claimedRewardAfterRewardTokenChange = await staking.userClaimedReward(alice.address);
+
+      expect(claimedRewardAfterRewardTokenChange).to.equal(0);
     });
   });
 }

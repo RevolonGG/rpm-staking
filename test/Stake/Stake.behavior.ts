@@ -3,20 +3,18 @@ import { parseUnits } from "ethers/lib/utils";
 import { stakingConfigFixture } from "../shared/fixtures";
 import { MaxUint256 } from "@ethersproject/constants";
 import { ethers, waffle } from "hardhat";
-import { UnipilotStaking } from "../../typechain/UnipilotStaking";
+import { RPMStaking } from "../../typechain/RPMStaking";
 import { TestERC20 } from "../../typechain/TestERC20";
 import { mineNBlocks, TX_TYPE, expectEventForAll } from "../common.setup";
 
 const createFixtureLoader = waffle.createFixtureLoader;
 
 export async function shouldBehaveLikeStake(): Promise<void> {
-  let staking: UnipilotStaking;
-  let pilot: TestERC20;
+  let staking: RPMStaking;
+  let rpm: TestERC20;
   let WETH: TestERC20;
   let testToken: TestERC20;
-  let ONE = parseUnits("1", "18");
-  let TEN = parseUnits("10", "18");
-  let HUNDRED = parseUnits("100", "18");
+  const HUNDRED = parseUnits("100", "18");
 
   const [wallet, alice, bob, carol] = waffle.provider.getWallets();
 
@@ -29,28 +27,28 @@ export async function shouldBehaveLikeStake(): Promise<void> {
   beforeEach("fixtures", async () => {
     const res = await loadFixture(stakingConfigFixture);
     staking = res.staking;
-    pilot = res.pilot;
+    rpm = res.rpm;
     WETH = res.WETH;
     testToken = res.testToken;
 
-    let HundredWETH = parseUnits("100", "18");
+    const HundredWETH = parseUnits("100", "18");
 
-    await pilot.connect(wallet).mint(wallet.address, parseUnits("2000000", "18"));
+    await rpm.connect(wallet).mint(wallet.address, parseUnits("2000000", "18"));
     await WETH.connect(wallet).mint(wallet.address, parseUnits("2000000", "18"));
 
     await WETH.transfer(staking.address, HundredWETH);
     await staking.updateRewards(HUNDRED, "3000");
 
-    await pilot.connect(wallet).approve(staking.address, MaxUint256);
+    await rpm.connect(wallet).approve(staking.address, MaxUint256);
     await WETH.connect(wallet).approve(staking.address, MaxUint256);
 
-    await pilot.connect(alice).mint(alice.address, parseUnits("2000000", "18"));
-    await pilot.connect(bob).mint(bob.address, parseUnits("2000000", "18"));
-    await pilot.connect(carol).mint(carol.address, parseUnits("2000000", "18"));
+    await rpm.connect(alice).mint(alice.address, parseUnits("2000000", "18"));
+    await rpm.connect(bob).mint(bob.address, parseUnits("2000000", "18"));
+    await rpm.connect(carol).mint(carol.address, parseUnits("2000000", "18"));
 
-    await pilot.connect(alice).approve(staking.address, MaxUint256);
-    await pilot.connect(bob).approve(staking.address, MaxUint256);
-    await pilot.connect(carol).approve(staking.address, MaxUint256);
+    await rpm.connect(alice).approve(staking.address, MaxUint256);
+    await rpm.connect(bob).approve(staking.address, MaxUint256);
+    await rpm.connect(carol).approve(staking.address, MaxUint256);
   });
 
   describe("#Stake", () => {
@@ -64,16 +62,16 @@ export async function shouldBehaveLikeStake(): Promise<void> {
     });
 
     it("should deposit 100 rewards for 3000 blocks and stake and claim periodically", async () => {
-      let HundredWETH = parseUnits("100", "18");
+      const HundredWETH = parseUnits("100", "18");
 
       //get rewardPerBlock
       expect(await staking.currentRewardPerBlock()).to.equal(HundredWETH.div(3000));
 
-      //stake 50 pilot from alice
+      //stake 50 rpm from alice
       await staking.stake(alice.address, HundredWETH);
       await mineNBlocks(10);
 
-      let claimed = await staking.connect(alice).claim();
+      const claimed = await staking.connect(alice).claim();
       /**
        * hundred=100000000000000000000
        * one=1000000000000000000
@@ -81,19 +79,19 @@ export async function shouldBehaveLikeStake(): Promise<void> {
        * acc += ((11 * (hundred/3000)) * one) / hundred = 3666666666666666
        * pending = ((3666666666666666 * hundred) / one)- 0 = 366666666666666600
        */
-      expectEventForAll(staking, claimed, alice, HundredWETH, "366666666666666600", TX_TYPE.CLAIM);
+      await expectEventForAll(staking, claimed, alice, HundredWETH, "366666666666666600", TX_TYPE.CLAIM);
 
       await mineNBlocks(1);
-      let claim2 = await staking.connect(alice).claim();
-      expectEventForAll(staking, claim2, alice, HundredWETH, "66666666666666600", TX_TYPE.CLAIM);
+      const claim2 = await staking.connect(alice).claim();
+      await expectEventForAll(staking, claim2, alice, HundredWETH, "66666666666666600", TX_TYPE.CLAIM);
 
       await mineNBlocks(1);
-      let claim3 = await staking.connect(alice).claim();
-      expectEventForAll(staking, claim3, alice, HundredWETH, "66666666666666600", TX_TYPE.CLAIM);
+      const claim3 = await staking.connect(alice).claim();
+      await expectEventForAll(staking, claim3, alice, HundredWETH, "66666666666666600", TX_TYPE.CLAIM);
     });
 
     it("should not stake after rewardDistribution end", async () => {
-      let HundredWETH = parseUnits("100", "18");
+      const HundredWETH = parseUnits("100", "18");
       // await WETH.connect(wallet).transfer(staking.address, HundredWETH);
       // await staking.connect(wallet).updateRewards(HUNDRED, "3");
       await mineNBlocks(4000);
@@ -112,7 +110,7 @@ export async function shouldBehaveLikeStake(): Promise<void> {
 
       await ethers.provider.send("evm_setAutomine", [true]);
 
-      mineNBlocks(blocksPassed);
+      await mineNBlocks(blocksPassed);
 
       /**
        * User 1 Accumulated reward upto 10 block will be now: 1*10 = 10 (AccumuatedUser1Reward)
@@ -128,7 +126,7 @@ export async function shouldBehaveLikeStake(): Promise<void> {
       await ethers.provider.send("evm_setAutomine", [true]);
       blocksPassed = 5;
 
-      mineNBlocks(blocksPassed);
+      await mineNBlocks(blocksPassed);
 
       /**
        * User 1 share from From Block 10 to 15:
@@ -144,20 +142,20 @@ export async function shouldBehaveLikeStake(): Promise<void> {
        * user2 has accumulated 4 for these last 5 blocks.
        */
 
-      let user1BalanceBefore = await WETH.balanceOf(wallet.address);
-      let user1PendingRewards = await staking.calculatePendingRewards(wallet.address);
+      const user1BalanceBefore = await WETH.balanceOf(wallet.address);
+      const user1PendingRewards = await staking.calculatePendingRewards(wallet.address);
       await staking.claim();
-      let user1BalanceAfter = await WETH.balanceOf(wallet.address);
+      const user1BalanceAfter = await WETH.balanceOf(wallet.address);
 
       // pendingRewards is not equal to user balance because hardhat not including both txs in single block
       expect(user1PendingRewards.add("200000000000000000")).to.be.eq(user1BalanceAfter.sub(user1BalanceBefore));
       expect(await staking.currentRewardPerBlock()).to.be.eq(parseUnits("1", "18"));
-      expect(await staking.totalPilotStaked()).to.be.eq(parseUnits("500", "18"));
+      expect(await staking.totalRPMStaked()).to.be.eq(parseUnits("500", "18"));
       expect(await staking.rewardToken()).to.be.eq(WETH.address);
-      expect(await staking.pilotToken()).to.be.eq(pilot.address);
+      expect(await staking.rpmToken()).to.be.eq(rpm.address);
 
       blocksPassed = 10;
-      mineNBlocks(blocksPassed);
+      await mineNBlocks(blocksPassed);
 
       /**
        * Then 10 more blocks pass and user2 decides to harvest as well.

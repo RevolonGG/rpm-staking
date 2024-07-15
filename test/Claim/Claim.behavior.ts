@@ -3,19 +3,19 @@ import { parseUnits } from "ethers/lib/utils";
 import { stakingConfigFixture } from "../shared/fixtures";
 import { MaxUint256 } from "@ethersproject/constants";
 import { ethers, waffle } from "hardhat";
-import { UnipilotStaking } from "../../typechain/UnipilotStaking";
+import { RPMStaking } from "../../typechain/RPMStaking";
 import { TestERC20 } from "../../typechain/TestERC20";
 import { mineNBlocks, TX_TYPE, expectEventForAll } from "../common.setup";
 
 const createFixtureLoader = waffle.createFixtureLoader;
 
 export async function shouldBehaveLikeClaim(): Promise<void> {
-  let staking: UnipilotStaking;
-  let pilot: TestERC20;
+  let staking: RPMStaking;
+  let rpm: TestERC20;
   let WETH: TestERC20;
 
-  let HUNDRED = parseUnits("100", "18");
-  let TEN = parseUnits("10", "18");
+  const HUNDRED = parseUnits("100", "18");
+  const TEN = parseUnits("10", "18");
 
   const [wallet, alice, bob, carol] = waffle.provider.getWallets();
 
@@ -24,49 +24,50 @@ export async function shouldBehaveLikeClaim(): Promise<void> {
   before("fixtures deployer", async () => {
     loadFixture = createFixtureLoader([wallet]);
   });
+
   beforeEach("fixtures", async () => {
     const res = await loadFixture(stakingConfigFixture);
     staking = res.staking;
-    pilot = res.pilot;
+    rpm = res.rpm;
     WETH = res.WETH;
 
-    await pilot.mint(wallet.address, parseUnits("2000000", "18"));
+    await rpm.mint(wallet.address, parseUnits("2000000", "18"));
     await WETH.mint(wallet.address, parseUnits("2000000", "18"));
 
     await WETH.transfer(staking.address, parseUnits("100", "18")); // 100 WETH
     await staking.updateRewards(HUNDRED, "3000"); // 100 WETH
 
-    await pilot.connect(wallet).approve(staking.address, MaxUint256);
+    await rpm.connect(wallet).approve(staking.address, MaxUint256);
     await WETH.connect(wallet).approve(staking.address, MaxUint256);
 
-    await pilot.connect(alice).mint(alice.address, parseUnits("2000000", "18"));
-    await pilot.connect(bob).mint(bob.address, parseUnits("2000000", "18"));
-    await pilot.connect(carol).mint(carol.address, parseUnits("2000000", "18"));
+    await rpm.connect(alice).mint(alice.address, parseUnits("2000000", "18"));
+    await rpm.connect(bob).mint(bob.address, parseUnits("2000000", "18"));
+    await rpm.connect(carol).mint(carol.address, parseUnits("2000000", "18"));
 
-    await pilot.connect(alice).approve(staking.address, MaxUint256);
-    await pilot.connect(bob).approve(staking.address, MaxUint256);
-    await pilot.connect(carol).approve(staking.address, MaxUint256);
+    await rpm.connect(alice).approve(staking.address, MaxUint256);
+    await rpm.connect(bob).approve(staking.address, MaxUint256);
+    await rpm.connect(carol).approve(staking.address, MaxUint256);
   });
 
   describe("#Claim", () => {
     it("should return 0", async () => {
-      const result = await staking.totalPilotStaked();
+      const result = await staking.totalRPMStaked();
       expect(result).to.equal("0");
     });
 
     it("should periodically stake twice and claim", async () => {
       await mineNBlocks(20);
 
-      let stake1 = await staking.stake(alice.address, TEN);
-      expectEventForAll(staking, stake1, alice, TEN, "0", TX_TYPE.STAKE);
+      const stake1 = await staking.stake(alice.address, TEN);
+      await expectEventForAll(staking, stake1, alice, TEN, "0", TX_TYPE.STAKE);
       await mineNBlocks(20);
 
-      let stake2 = await staking.stake(alice.address, TEN);
-      expectEventForAll(staking, stake2, alice, TEN, "699999999999999990", TX_TYPE.STAKE);
+      const stake2 = await staking.stake(alice.address, TEN);
+      await expectEventForAll(staking, stake2, alice, TEN, "699999999999999990", TX_TYPE.STAKE);
       await mineNBlocks(10);
 
-      let claimed = await staking.connect(alice).claim();
-      expectEventForAll(staking, claimed, alice, TEN.mul(2), "366666666666666660", TX_TYPE.CLAIM);
+      const claimed = await staking.connect(alice).claim();
+      await expectEventForAll(staking, claimed, alice, TEN.mul(2), "366666666666666660", TX_TYPE.CLAIM);
     });
 
     //NOTICE: this case is only possible if the updateReward and last stake/unstake/claim are in the same block
@@ -74,8 +75,8 @@ export async function shouldBehaveLikeClaim(): Promise<void> {
     it("should revert on claim for contract out ot funds", async () => {
       await WETH.connect(wallet).transfer(staking.address, 100); // 100 WETH
       await staking.updateRewards(HUNDRED, "3");
-      let stake1 = await staking.stake(alice.address, HUNDRED);
-      expectEventForAll(staking, stake1, alice, HUNDRED, "0", TX_TYPE.STAKE);
+      const stake1 = await staking.stake(alice.address, HUNDRED);
+      await expectEventForAll(staking, stake1, alice, HUNDRED, "0", TX_TYPE.STAKE);
 
       await mineNBlocks(3300);
       // await ethers.provider.send("hardhat_mine", ["CE4"]); //3300 blocks
@@ -85,7 +86,7 @@ export async function shouldBehaveLikeClaim(): Promise<void> {
 
     // NOTICE: having some issues with alice claim, not sure why, for time being, ignoring this
     it("should work with multiple user deposit and calculate same reward for all", async () => {
-      let HundredWETH = parseUnits("100", "18");
+      const HundredWETH = parseUnits("100", "18");
       await ethers.provider.send("evm_setAutomine", [false]);
 
       await staking.stake(alice.address, HundredWETH);
@@ -97,16 +98,18 @@ export async function shouldBehaveLikeClaim(): Promise<void> {
       await ethers.provider.send("evm_setAutomine", [false]);
 
       //having some issues with alice claim, not sure why, for the time being, ignoring this
-      let alicePendingReward = await staking.connect(alice).claim();
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const alicePendingReward = await staking.connect(alice).claim();
 
-      let bobPendingReward = await staking.connect(bob).claim();
-      let carolPendingReward = await staking.connect(carol).claim();
+      const bobPendingReward = await staking.connect(bob).claim();
+      const carolPendingReward = await staking.connect(carol).claim();
 
       await mineNBlocks(1);
       await ethers.provider.send("evm_setAutomine", [true]);
 
-      expectEventForAll(staking, bobPendingReward, bob, HundredWETH, "222222222222222200", TX_TYPE.CLAIM);
-      expectEventForAll(staking, carolPendingReward, carol, HundredWETH, "222222222222222200", TX_TYPE.CLAIM);
+      await expectEventForAll(staking, bobPendingReward, bob, HundredWETH, "222222222222222200", TX_TYPE.CLAIM);
+
+      await expectEventForAll(staking, carolPendingReward, carol, HundredWETH, "222222222222222200", TX_TYPE.CLAIM);
     });
 
     //NOTICE: this test is not working, it's a bug in the automine,
