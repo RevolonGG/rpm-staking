@@ -1,9 +1,10 @@
-# Unipilot Staking
+# RPM Staking
 
-This repository contains Unipilot staking smart contract.
+This repository contains RPM staking smart contract.
 
-## UnipilotStaking.sol
-`UnipilotStaking.sol` allows unipilot holders to stake (`stake()`) unipilot tokens to receive rewards (reward token could be WETH or any other ERC-20 token). Staker can claim rewards (`claim()`). Stakers may unstake their unipilot tokens by calling `unstake()`, which will trigger the reward claim as well. For emergency unstake, stakers can call `emergencyUnstake()`, beaware that emergency unstake doesn't trigger reward claim and all your pending reward tokens are lost.
+## RPMStaking.sol
+
+`RPMStaking.sol` allows RPM holders to stake (`stake()`) RPM tokens to receive rewards (reward token could be RPM or any other ERC-20 token). Staker can claim rewards (`claim()`). Stakers may unstake their RPM tokens by calling `unstake()`, which will trigger the reward claim as well. For emergency unstake, stakers can call `emergencyUnstake()`, beaware that emergency unstake doesn't trigger reward claim and all your pending reward tokens are lost.
 
 ## Local deployment
 
@@ -23,7 +24,6 @@ Compile the smart contracts with Hardhat:
 $ yarn compile
 ```
 
-
 Set the environment variables.
 For example:
 
@@ -33,18 +33,18 @@ PK1="Your private key"
 ETHERSCAN_API_KEY="Your etherscan API key"
 ```
 
-Execute the tasks in the following order with correct params to deploy unipilot staking contract and to verify it.
+Execute the tasks in the following order with correct params to deploy RPM staking contract and to verify it.
 
 ```
-1. deploy-unipilot-setup
-2. deploy-unipilot-staking
-3. setup-staking-contract
-4. verify-unipilot-staking
+1. deployStakingSetup
+2. deployStaking
+3. setupStaking
 ```
 
 ## Test cases
 
 To run the test cases:
+
 ```
 $ yarn test
 ```
@@ -55,5 +55,4 @@ Audit was performed by [Block Apex](https://blockapex.io/unipilot-staking-audit-
 
 ## Licensing
 
-Unipilot staking contract is licensed under the [MIT License](https://opensource.org/licenses/MIT)
-
+RPM staking contract is licensed under the [MIT License](https://opensource.org/licenses/MIT)

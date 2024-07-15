@@ -10,7 +10,7 @@ import { resolve } from "path";
 
 import { config as dotenvConfig } from "dotenv";
 import { HardhatUserConfig } from "hardhat/config";
-import { HardhatNetworkAccountUserConfig, NetworkUserConfig } from "hardhat/types";
+import { NetworkUserConfig } from "hardhat/types";
 
 dotenvConfig({ path: resolve(__dirname, "./.env") });
 
@@ -23,21 +23,13 @@ const chainIds = {
   rinkeby: 4,
   ropsten: 3,
   mumbai: 80001,
+  holesky: 17000,
 };
-
-// Ensure that we have all the environment variables we need.
-// const mnemonic: string | undefined | HardhatNetworkAccountUserConfig =
-//   process.env.MNEMONIC;
-// if (!mnemonic) {
-//   throw new Error("Please set your MNEMONIC in a .env file");
-// }
 
 const infuraApiKey: string | undefined = process.env.INFURA_API_KEY;
 if (!infuraApiKey) {
   throw new Error("Please set your INFURA_API_KEY in a .env file");
 }
-
-let alchemyapiKey = process.env.FORK;
 
 const etherscanApiKey = process.env.ETHERSCAN_API_KEY;
 
@@ -67,19 +59,13 @@ const config: HardhatUserConfig = {
     src: "./contracts",
   },
   networks: {
-    // hardhat: {
-    //   accounts: {
-    //     mnemonic,
-    //   },
-    //   chainId: chainIds.hardhat,
-    // },
-
     goerli: createTestnetConfig("goerli"),
     kovan: createTestnetConfig("kovan"),
     rinkeby: createTestnetConfig("rinkeby"),
     ropsten: createTestnetConfig("ropsten"),
     mainnet: createTestnetConfig("mainnet"),
     mumbai: createTestnetConfig("mumbai"),
+    holesky: createTestnetConfig("holesky"),
   },
   mocha: {
     timeout: 50000,
@@ -116,6 +102,16 @@ const config: HardhatUserConfig = {
   },
   etherscan: {
     apiKey: etherscanApiKey,
+    customChains: [
+      {
+        network: "holesky",
+        chainId: 17000,
+        urls: {
+          apiURL: "https://api-holesky.etherscan.io/api",
+          browserURL: "https://holesky.etherscan.io",
+        },
+      },
+    ],
   },
 };
 

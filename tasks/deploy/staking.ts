@@ -1,186 +1,137 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { deployContract } from "./utils";
 import { formatEther } from "ethers/lib/utils";
 import { task } from "hardhat/config";
 
-//PILOT: 0x37C997B35C619C21323F3518B9357914E8B99525
-//GOVERNANCE: 0xAfA13aa8F1b1d89454369c28b0CE1811961A7907
-//DISTRIBUTION BLOCKS: 27780
-//REWARDS TO DISTRIBUTE: 600000000000000000
-//STAKE TO: 0x1E3881227010c8DcDFa2F11833D3d70A00893f94
-//WETH: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
+//RPM: 0xA5AFE7a1aA62C2fA192896E0387bbB1A8708bb67
+//STAKING SETUP: 0xB1FD10feB9561dEDDb00690dd01378EAEa7903Ed
+//STAKING: 0xc05803E4b87b9DE6B56B4829DccF46455e5F41E9
+//GOVERNANCE: 0xc1484D30EF37Aca50Fba3Da58b4C774C20E7d783
+//DISTRIBUTION BLOCKS: 175200
+//REWARDS TO DISTRIBUTE: 1000000000000000000000
 
-task("deploy-pilotToken-staking", "Deploy Pilot Staking Contract")
-  .addParam("governance", "governance address")
-  .addParam("reward", "reward token address")
-  .addParam("pilot", "pilot token address")
-  .setAction(async (cliArgs, { ethers, run, network }) => {
+task("deployStakingSetup", "Deploy Staking Setup Contract")
+  .addParam("tokenAddress", "Staking token address")
+  .setAction(async (args, { ethers, run, network }) => {
     await run("compile");
 
-    const signer = (await ethers.getSigners())[0];
-    console.log("Signer");
+    const [signer] = await ethers.getSigners();
+    const signerAddress = signer.address;
+    const signerBalance = await signer.getBalance();
 
-    console.log("  at", signer.address);
-    console.log("  ETH", formatEther(await signer.getBalance()));
+    console.log("\nSigner Address =>", signerAddress);
+    console.log("Signer Balance =>", formatEther(signerBalance));
+    console.log("\nNetwork =>", network.name);
+    console.log("\nArguments =>\n", args, "\n");
 
-    const args = {
-      governance: cliArgs.governance,
-      rewardToken: cliArgs.reward,
-      pilotToken: cliArgs.pilot,
-    };
-
-    console.log("Network");
-    console.log("   ", network.name);
-    console.log("Task Args");
-    console.log(args);
-
-    const pilotStaking = await deployContract(
-      "UnipilotStaking",
-      await ethers.getContractFactory("UnipilotStaking"),
+    const rpmStakingSetup = await deployContract(
+      "RPMStakingSetup",
+      await ethers.getContractFactory("RPMStakingSetup"),
       signer,
-      [args.governance, args.rewardToken, args.pilotToken],
+      [args.tokenAddress],
     );
 
-    await pilotStaking.deployTransaction.wait(5);
-    delay(60000);
+    await rpmStakingSetup.deployTransaction.wait(5);
+    await delay(60000);
 
-    console.log("Verifying Smart Contract ...");
+    console.log("\nVerifying Smart Contract ...\n");
 
     await run("verify:verify", {
-      address: pilotStaking.address,
-      constructorArguments: [args.governance, args.rewardToken, args.pilotToken],
+      address: rpmStakingSetup.address,
+      constructorArguments: [args.tokenAddress],
     });
   });
 
-task("deploy-unipilot-setup", "Deploy Unipilot Staking Setup Contract")
-  .addParam("pilot", "pilot token address")
-  .setAction(async (cliArgs, { ethers, run, network }) => {
+task("deployStaking", "Deploy Staking Contract")
+  .addParam("stakeTokenAddress", "Staking token address")
+  .addParam("rewardTokenAddress", "Reward token address")
+  .addParam("setupContractAddress", "Setup Contract address")
+  .setAction(async (args, { ethers, run, network }) => {
     await run("compile");
 
-    const signer = (await ethers.getSigners())[0];
-    console.log("Signer");
+    const [signer] = await ethers.getSigners();
+    const signerAddress = signer.address;
+    const signerBalance = await signer.getBalance();
 
-    console.log("  at", signer.address);
-    console.log("  ETH", formatEther(await signer.getBalance()));
+    console.log("\nSigner Address =>", signerAddress);
+    console.log("Signer Balance =>", formatEther(signerBalance));
+    console.log("\nNetwork =>", network.name);
+    console.log("\nArguments =>\n", args, "\n");
 
-    const args = {
-      pilotToken: cliArgs.pilot,
-    };
+    const rpmStaking = await deployContract("RPMStaking", await ethers.getContractFactory("RPMStaking"), signer, [
+      args.setupContractAddress,
+      args.rewardTokenAddress,
+      args.stakeTokenAddress,
+    ]);
 
-    console.log("Network");
-    console.log("   ", network.name);
-    console.log("Task Args");
-    console.log(args);
+    await rpmStaking.deployTransaction.wait(5);
+    await delay(60000);
 
-    const unipilotStakingSetup = await deployContract(
-      "UnipilotStakingSetup",
-      await ethers.getContractFactory("UnipilotStakingSetup"),
-      signer,
-      [args.pilotToken],
-    );
-
-    await unipilotStakingSetup.deployTransaction.wait(5);
-    delay(60000);
-
-    console.log("Verifying Smart Contract ...");
+    console.log("\nVerifying Smart Contract ...\n");
 
     await run("verify:verify", {
-      address: unipilotStakingSetup.address,
-      constructorArguments: [args.pilotToken],
+      address: rpmStaking.address,
+      constructorArguments: [args.setupContractAddress, args.rewardTokenAddress, args.stakeTokenAddress],
     });
   });
 
-task("deploy-unipilot-staking", "Deploy Unipilot Staking Contract")
-  .addParam("setupContract", "governance address")
-  .addParam("reward", "reward token address")
-  .addParam("pilot", "pilot token address")
-  .setAction(async (cliArgs, { ethers, run, network }) => {
-    await run("compile");
+task("setupStaking", "Setup Staking")
+  .addParam("stakingContractAddress", "Staking Contract address")
+  .addParam("setupContractAddress", "Setup Contract address")
+  .addParam("stakeTokenAddress", "Staking token address")
+  .addParam("distributionBlocks", "Number of blocks to distribute reward")
+  .addParam("rewardAmount", "Reward amount")
+  .addParam("governance", "Governance address")
+  .setAction(async (args, { ethers, run, network }) => {
+    const [signer] = await ethers.getSigners();
+    const signerAddress = signer.address;
+    const signerBalance = await signer.getBalance();
 
-    const signer = (await ethers.getSigners())[0];
-    console.log("Signer");
+    console.log("\nSigner Address =>", signerAddress);
+    console.log("Signer Balance =>", formatEther(signerBalance));
+    console.log("\nNetwork =>", network.name);
+    console.log("\nArguments =>\n", args, "\n");
 
-    console.log("  at", signer.address);
-    console.log("  ETH", formatEther(await signer.getBalance()));
+    const tokenContract = await ethers.getContractAt("RPM", args.stakeTokenAddress, signer);
+    const stakingSetupContract = await ethers.getContractAt("RPMStakingSetup", args.setupContractAddress, signer);
 
-    const args = {
-      governance: cliArgs.setupContract,
-      rewardToken: cliArgs.reward,
-      pilotToken: cliArgs.pilot,
-    };
+    const stakeAmount = ethers.utils.parseUnits("1", 18);
 
-    console.log("Network");
-    console.log("   ", network.name);
-    console.log("Task Args");
-    console.log(args);
+    // Transfer stake tokens
+    const stakeTokensTransferTx = await tokenContract.transfer(args.setupContractAddress, stakeAmount);
+    const stakeTokensTransferReceipt = await stakeTokensTransferTx.wait();
+    console.log("\nTransfer stake tokens:", stakeTokensTransferReceipt.logs);
 
-    const unipilotStaking = await deployContract(
-      "UnipilotStaking",
-      await ethers.getContractFactory("UnipilotStaking"),
-      signer,
-      [args.governance, args.rewardToken, args.pilotToken],
-    );
+    // Transfer reward tokens
+    const rewardTokensTransferTx = await tokenContract.transfer(args.stakingContractAddress, args.rewardAmount);
+    const rewardTokensTransferReceipt = await rewardTokensTransferTx.wait();
+    console.log("\nTransfer reward tokens:", rewardTokensTransferReceipt.logs);
 
-    await unipilotStaking.deployTransaction.wait(5);
-    delay(60000);
+    // Set staking contract
+    const setStakingTx = await stakingSetupContract.setStakingAddress(args.stakingContractAddress);
+    const setStakingReceipt = await setStakingTx.wait();
+    console.log("\nSet staking contract:", setStakingReceipt.logs);
 
-    console.log("Verifying Smart Contract ...");
-
-    await run("verify:verify", {
-      address: unipilotStaking.address,
-      constructorArguments: [args.governance, args.rewardToken, args.pilotToken],
-    });
-  });
-
-task("setup-staking-contract", "Setup unipilot staking contract")
-  .addParam("governance", "governance address")
-  .addParam("distributionBlocks", "no of blocks to distribute reward")
-  .addParam("reward", "reward amount")
-  .setAction(async (cliArgs, { ethers, run, network }) => {
-    let setupContract = "0x5E865b76CdC0fD429938eb4a36097aDDBe0970a8";
-    let stakingContract = "0xC9256E6e85ad7aC18Cd9bd665327fc2062703628";
-    let stakeTo = "0x1E3881227010c8DcDFa2F11833D3d70A00893f94";
-    let stakeAmount = "10000000000000000000"; // 10 pilot
-
-    const signer = (await ethers.getSigners())[0];
-    console.log("Signer");
-
-    console.log("  at", signer.address);
-    console.log("  ETH", formatEther(await signer.getBalance()));
-
-    console.log("Task Args");
-    console.log(cliArgs);
-
-    let stakingSetup = await ethers.getContractAt("UnipilotStakingSetup", setupContract, signer);
-
-    let tx1 = await stakingSetup.setStakingAddress(stakingContract);
-    let receipt1 = await tx1.wait();
-    console.log("Set staking contract ", receipt1.logs);
-
-    let tx2 = await stakingSetup.doSetup(
-      stakeTo,
-      cliArgs.governance,
+    // Setup transaction
+    const setupTx = await stakingSetupContract.doSetup(
+      args.governance,
+      args.governance,
       stakeAmount,
-      cliArgs.reward,
-      cliArgs.distributionBlocks,
+      args.rewardAmount,
+      args.distributionBlocks,
     );
-    let receipt2 = await tx2.wait();
-    console.log("Setup tx ", receipt2);
+    const setupReceipt = await setupTx.wait();
+    console.log("\nSetup transaction:", setupReceipt.logs);
   });
 
-// task("verify-unipilot-staking", "Deploy Unipilot Staking Contract").setAction(
-//   async (cliArgs, { ethers, run, network }) => {
-//     console.log("Verifying Smart Contract ...");
+task("verify-contract", "Verify Contract").setAction(async (args, { ethers, run, network }) => {
+  console.log("Verifying Smart Contract ...");
 
-//     await run("verify:verify", {
-//       address: "0xC9256E6e85ad7aC18Cd9bd665327fc2062703628",
-//       constructorArguments: [
-//         "0x5E865b76CdC0fD429938eb4a36097aDDBe0970a8",
-//         "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-//         "0x37C997B35C619C21323F3518B9357914E8B99525",
-//       ],
-//     });
-//   }
-// );
+  await run("verify:verify", {
+    address: "...",
+    constructorArguments: ["..."],
+  });
+});
 
 function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
