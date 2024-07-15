@@ -71,8 +71,14 @@ contract RPMStaking {
     // Last time reward token was updated
     uint256 public lastUpdateRewardToken;
 
+    // Total reward allocated
+    uint256 public totalRewardAllocated;
+
     // Info of each user that stakes RPM tokens
     mapping(address => UserInfo) public userInfo;
+
+    // Total reward claimed of each user
+    mapping(address => uint256) public userClaimedReward;
 
     event StakeOrUnstakeOrClaim(address indexed user, uint256 amount, uint256 pendingReward, TxType txType);
     event NewRewardPeriod(
@@ -153,6 +159,9 @@ contract RPMStaking {
 
         // Updating reward token address
         rewardToken = IERC20Metadata(_newRewardToken);
+
+        // Resetting total reward allocated
+        totalRewardAllocated = 0;
     }
 
     /**
@@ -185,6 +194,9 @@ contract RPMStaking {
 
         // Setting rewards expiration block
         periodEndBlock = block.number + _rewardDurationInBlocks;
+
+        // Incrementing total reward allocated
+        totalRewardAllocated += _reward;
 
         emit NewRewardPeriod(_rewardDurationInBlocks, currentRewardPerBlock, _reward, periodEndBlock);
     }
@@ -380,6 +392,9 @@ contract RPMStaking {
 
                     // Transferring rewards to the user
                     rewardToken.safeTransfer(_to, pendingRewards);
+
+                    // Incrementing user's total claimed reward
+                    userClaimedReward[_to] += pendingRewards;
                 }
                 // If there are no pending rewards and tx is of claim then revert
                 else if (TxType.CLAIM == _txType) revert NoPendingRewardsToClaim();
@@ -423,6 +438,9 @@ contract RPMStaking {
         if (userInfo[_to].lastUpdateRewardToken < lastUpdateRewardToken) {
             userInfo[_to].rewardDebt = 0;
             userInfo[_to].lastUpdateRewardToken = lastUpdateRewardToken;
+
+            // Resetting user's total claimed reward
+            userClaimedReward[_to] = 0;
         }
     }
 
