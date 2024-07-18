@@ -51,7 +51,7 @@ $ yarn test
 
 ## Security
 
-Audit was performed by [Block Apex](https://blockapex.io/unipilot-staking-audit-report/)
+Audit was performed by [Block Apex](https://github.com/BlockApex/Audit-Reports/blob/master/Unipilot%20Staking%20Final%20Audit.pdf)
 
 ## Licensing
 
